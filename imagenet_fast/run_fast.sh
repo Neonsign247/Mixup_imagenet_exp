@@ -1,7 +1,7 @@
-DATA160=/data_large/readonly/imagenet-sz/160
-DATA352=/data_large/readonly/imagenet-sz/352
+DATA160=/workspace/dataset/ILSVRC2012-sz/160
+DATA352=/workspace/dataset/ILSVRC2012-sz/352
 
-NAME=puzzlemix
+NAME=test
 
 CONFIG1=configs/${NAME}/configs_fast_phase1.yml
 CONFIG2=configs/${NAME}/configs_fast_phase2.yml
