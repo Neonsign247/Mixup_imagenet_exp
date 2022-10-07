@@ -2,3 +2,4 @@ numpy
 pyyaml
 EasyDict
 argparse
+gco-wrapper
