@@ -80,7 +80,7 @@ def pad_str(msg, total_len=70):
 
 def parse_config_file(args):
     with open(args.config) as f:
-        config = EasyDict(yaml.safe_load(f))
+        config = EasyDict(yaml.load(f, Loader=yaml.Loader))
         
     # Add args parameters to the dict
     for k, v in vars(args).items():
