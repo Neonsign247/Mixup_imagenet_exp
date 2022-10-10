@@ -15,4 +15,7 @@ saliency.py
 figures/.DS_Store
 !imagenet/*
 imagenet/checkpoint/*
+imagenet_fast/wandb/*
+imagenet_fast/output/*
+imagenet_fast/trained_models/*
 

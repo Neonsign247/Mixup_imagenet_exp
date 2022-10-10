@@ -1,0 +1,123 @@
+Selected optimization level O1:  Insert automatic casts around Pytorch functions and Tensor methods.
+
+Defaults for this optimization level are:
+enabled                : True
+opt_level              : O1
+cast_model_type        : None
+patch_torch_functions  : True
+keep_batchnorm_fp32    : None
+master_weights         : None
+loss_scale             : dynamic
+Processing user overrides (additional kwargs that are not None)...
+After processing overrides, optimization options are:
+enabled                : True
+opt_level              : O1
+cast_model_type        : None
+patch_torch_functions  : True
+keep_batchnorm_fp32    : None
+master_weights         : None
+loss_scale             : 1024.0
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(274)train()
+-> output = model(input,
+(Pdb) 269  	
+270  	        if clean_lam == 0:
+271  	            model.train()
+272  	
+273  	        pdb.set_trace()
+274  ->	        output = model(input,
+275  	                       graphcut=True,
+276  	                       permuted_idx=permuted_idx1,
+277  	                       block_num=block_num,
+278  	                       mask=mask,
+279  	                       nary=unary,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(275)train()
+-> graphcut=True,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(276)train()
+-> permuted_idx=permuted_idx1,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(277)train()
+-> block_num=block_num,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(278)train()
+-> mask=mask,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(279)train()
+-> nary=unary,
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(280)train()
+-> t_eps=configs.TRAIN.eps)
+(Pdb) > /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(274)train()
+-> output = model(input,
+(Pdb) --Call--
+> /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1179)_call_impl()
+-> def _call_impl(self, *input, **kwargs):
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1180)_call_impl()
+-> forward_call = (self._slow_forward if torch._C._get_tracing_state() else self.forward)
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1183)_call_impl()
+-> if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1184)_call_impl()
+-> or _global_forward_hooks or _global_forward_pre_hooks):
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1183)_call_impl()
+-> if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1184)_call_impl()
+-> or _global_forward_hooks or _global_forward_pre_hooks):
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1183)_call_impl()
+-> if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+(Pdb) > /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1185)_call_impl()
+-> return forward_call(*input, **kwargs)
+(Pdb) TypeError: Caught TypeError in replica 0 on device 0.
+Original Traceback (most recent call last):
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/parallel/parallel_apply.py", line 64, in _worker
+    output = module(*input, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1185, in _call_impl
+    return forward_call(*input, **kwargs)
+TypeError: forward() got an unexpected keyword argument 'nary'
+> /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1185)_call_impl()
+-> return forward_call(*input, **kwargs)
+(Pdb) *** NameError: name 'nn' is not defined
+(Pdb) --Return--
+> /opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py(1185)_call_impl()->None
+-> return forward_call(*input, **kwargs)
+(Pdb) TypeError: Caught TypeError in replica 0 on device 0.
+Original Traceback (most recent call last):
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/parallel/parallel_apply.py", line 64, in _worker
+    output = module(*input, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1185, in _call_impl
+    return forward_call(*input, **kwargs)
+TypeError: forward() got an unexpected keyword argument 'nary'
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(274)train()
+-> output = model(input,
+(Pdb) --Return--
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(274)train()->None
+-> output = model(input,
+(Pdb) TypeError: Caught TypeError in replica 0 on device 0.
+Original Traceback (most recent call last):
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/parallel/parallel_apply.py", line 64, in _worker
+    output = module(*input, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1185, in _call_impl
+    return forward_call(*input, **kwargs)
+TypeError: forward() got an unexpected keyword argument 'nary'
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(186)main()
+-> train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
+(Pdb) --Return--
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(186)main()->None
+-> train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
+(Pdb) TypeError: Caught TypeError in replica 0 on device 0.
+Original Traceback (most recent call last):
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/parallel/parallel_apply.py", line 64, in _worker
+    output = module(*input, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1185, in _call_impl
+    return forward_call(*input, **kwargs)
+TypeError: forward() got an unexpected keyword argument 'nary'
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(324)<module>()
+-> main()
+(Pdb) --Return--
+> /workspace/hi/classwise_mixup/Mixup_imagenet_exp/imagenet_fast/main_fast.py(324)<module>()->None
+-> main()
+(Pdb) --Call--
+> /opt/conda/lib/python3.8/codecs.py(309)__init__()
+-> def __init__(self, errors='strict'):
+(Pdb) > /opt/conda/lib/python3.8/codecs.py(310)__init__()
+-> IncrementalDecoder.__init__(self, errors)
+(Pdb) > /opt/conda/lib/python3.8/codecs.py(312)__init__()
+-> self.buffer = b""
+(Pdb) --Return--
+> /opt/conda/lib/python3.8/codecs.py(312)__init__()->None
+-> self.buffer = b""
+(Pdb) 

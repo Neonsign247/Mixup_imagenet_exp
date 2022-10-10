@@ -7,9 +7,9 @@ import multiprocessing
 cpus = multiprocessing.cpu_count()
 cpus = min(48, cpus)
 
-PATH =  Path('/workspace/dataset/') / 'ILSVRC2012'
+PATH =  Path('/workspace/ssd/dataset/') / 'ILSVRC2012'
 #DEST = Path('/mnt/ram')
-DEST = Path('/workspace/dataset/') / 'ILSVRC2012-sz/'
+DEST = Path('/workspace/ssd/dataset/') / 'ILSVRC2012-sz/'
 DEST.mkdir(exist_ok=True)
 #szs = (int(128*1.25), int(256*1.25))
 # szs = (int(160*1.25),)

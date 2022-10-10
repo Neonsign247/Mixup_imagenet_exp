@@ -20,10 +20,7 @@ from validation import validate
 #import torchvision.models as models
 import models
 from models.imagenet_resnet import BasicBlock, Bottleneck
-from multiprocessing import Pool
 #from torchvision.models.resnet import BasicBlock, Bottleneck
-import pdb
-import wandb
 
 from apex import amp
 import copy
@@ -68,13 +65,32 @@ cudnn.benchmark = True
 criterion = nn.CrossEntropyLoss().cuda()
 criterion_batch = nn.CrossEntropyLoss(reduction='none').cuda()
 
+CORRUPTIONS = [
+    'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur', 'glass_blur', 'motion_blur',
+    'zoom_blur', 'snow', 'frost', 'fog', 'brightness', 'contrast', 'elastic_transform', 'pixelate',
+    'jpeg_compression'
+]
+
+# Raw AlexNet errors taken from https://github.com/hendrycks/robustness
+ALEXNET_ERR = [
+    0.886428, 0.894468, 0.922640, 0.819880, 0.826268, 0.785948, 0.798360, 0.866816, 0.826572,
+    0.819324, 0.564592, 0.853204, 0.646056, 0.717840, 0.606500
+]
+
+
+def compute_mce(corruption_accs):
+    """Compute mCE (mean Corruption Error) normalized by AlexNet performance."""
+    mce = 0.
+    for i in range(len(CORRUPTIONS)):
+        avg_err = 1 - np.mean(corruption_accs[CORRUPTIONS[i]])
+        ce = 100 * avg_err / ALEXNET_ERR[i]
+        mce += ce / 15
+    return mce
+
 
 def main():
     # Scale and initialize the parameters
     best_prec1 = 0
-    
-    wandb.init(project="Imagenet Mixup 100epoch", entity="neonsign", name = '159.109_' + configs.output_name)
-    wandb.config.update(configs)
 
     # Create output folder
     if not os.path.isdir(os.path.join('trained_models', configs.output_name)):
@@ -122,7 +138,7 @@ def main():
                                 momentum=configs.TRAIN.momentum,
                                 weight_decay=configs.TRAIN.weight_decay)
 
-    if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
+    if configs.TRAIN.half and not configs.evaluate:
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
     model = torch.nn.DataParallel(model)
 
@@ -140,81 +156,21 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(configs.resume))
 
-    # Initiate data loaders
-    traindir = os.path.join(configs.data, 'train')
-    valdir = os.path.join(configs.data, 'val')
-
-    train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(configs.DATA.crop_size, scale=(configs.DATA.min_scale, 1.0)),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor()
-    ])
-
     test_transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
     ])
 
-    train_dataset = datasets.ImageFolder(traindir, train_transform)
+    corruption_accs = test_c(model, test_transform)
 
-    train_loader = torch.utils.data.DataLoader(train_dataset,
-                                               batch_size=configs.DATA.batch_size,
-                                               shuffle=True,
-                                               num_workers=configs.DATA.workers,
-                                               pin_memory=True,
-                                               sampler=None,
-                                               drop_last=True)
+    for c in CORRUPTIONS:
+        print('\t'.join(map(str, [c] + corruption_accs[c])))
 
-    val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(valdir, test_transform),
-                                             batch_size=configs.DATA.batch_size,
-                                             shuffle=False,
-                                             num_workers=configs.DATA.workers,
-                                             pin_memory=True,
-                                             drop_last=False)
-
-    # If in evaluate mode: perform validation on PGD attacks as well as clean samples
-    if configs.evaluate:
-        validate(val_loader, model, criterion, configs, logger)
-        return
-
-    lr_schedule = lambda t: np.interp([t], configs.TRAIN.lr_epochs, configs.TRAIN.lr_values)[0]
-
-    if configs.TRAIN.mp > 0:
-        mp = Pool(configs.TRAIN.mp)
-    else:
-        mp = None
-
-    wandb.watch(model)
-    for epoch in range(configs.TRAIN.start_epoch, configs.TRAIN.epochs):
-        # train for one epoch
-        tprec1, tprec5, tloss, lr = train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
-
-        # evaluate on validation set
-        prec1, prec5, loss = validate(val_loader, model, criterion, configs, logger)
-        
-        wandb.log({
-            "Loss/train": tloss, 
-            "Loss/validation": loss, 
-            "prec1/train": tprec1, 
-            "prec1/validation": prec1, 
-            "prec5/train": tprec5, 
-            "prec5/validation": prec5, 
-            "Learning Rate": lr})
-        # remember best prec@1 and save checkpoint
-        is_best = prec1 > best_prec1
-        best_prec1 = max(prec1, best_prec1)
-        save_checkpoint(
-            {
-                'epoch': epoch + 1,
-                'arch': configs.TRAIN.arch,
-                'state_dict': model.state_dict(),
-                'best_prec1': best_prec1,
-                'optimizer': optimizer.state_dict(),
-            }, is_best, os.path.join('trained_models', f'{configs.output_name}'), epoch + 1)
+    print('mCE (normalized by AlexNet):', compute_mce(corruption_accs))
 
 
-def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
+def train(train_loader, model, optimizer, epoch, lr_schedule, half=False):
     mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
     mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
     std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
@@ -229,9 +185,11 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
     # switch to train mode
     model.train()
     end = time.time()
-
     for i, (input, target) in enumerate(train_loader):
-        input = input.cuda(non_blocking=True)
+        if configs.TRAIN.methods != 'augmix':
+            input = input.cuda(non_blocking=True)
+        else:
+            input = torch.cat(input, 0).cuda(non_blocking=True)
 
         target = target.cuda(non_blocking=True)
         data_time.update(time.time() - end)
@@ -245,69 +203,84 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
 
         input.sub_(mean).div_(std)
         lam = np.random.beta(configs.TRAIN.alpha, configs.TRAIN.alpha)
+        if configs.TRAIN.methods == 'manifold' or configs.TRAIN.methods == 'graphcut':
+            permuted_idx1 = np.random.permutation(input.size(0) // 4)
+            permuted_idx2 = permuted_idx1 + input.size(0) // 4
+            permuted_idx3 = permuted_idx2 + input.size(0) // 4
+            permuted_idx4 = permuted_idx3 + input.size(0) // 4
+            permuted_idx = np.concatenate(
+                [permuted_idx1, permuted_idx2, permuted_idx3, permuted_idx4], axis=0)
+        else:
+            permuted_idx = torch.tensor(np.random.permutation(input.size(0)))
 
-        # permuted_idx1 = np.random.permutation(input.size(0) // 4)
-        # permuted_idx2 = permuted_idx1 + input.size(0) // 4
-        # permuted_idx3 = permuted_idx2 + input.size(0) // 4
-        # permuted_idx4 = permuted_idx3 + input.size(0) // 4
-        # permuted_idx = np.concatenate([permuted_idx1, permuted_idx2, permuted_idx3, permuted_idx4],
-        #                               axis=0)
+        if configs.TRAIN.methods == 'input':
+            input = lam * input + (1 - lam) * input[permuted_idx]
 
-        input_var = Variable(input, requires_grad=True)
+        elif configs.TRAIN.methods == 'cutmix':
+            input, lam = mixup_box(input, lam=lam, permuted_idx=permuted_idx)
 
-        if clean_lam == 0:
-            model.eval()
+        elif configs.TRAIN.methods == 'augmix':
+            logit = model(input)
+            logit_clean, logit_aug1, logit_aug2 = torch.split(logit, logit.size(0) // 3)
+            output = logit_clean
 
-        output = model(input_var)
-        loss_clean = criterion(output, target)
+            p_clean = F.softmax(logit_clean, dim=1)
+            p_aug1 = F.softmax(logit_aug1, dim=1)
+            p_aug2 = F.softmax(logit_aug2, dim=1)
 
-        if clean_lam > 0:
-            with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
+            p_mixture = torch.clamp((p_clean + p_aug1 + p_aug2) / 3., 1e-7, 1).log()
+            loss_JSD = 4 * (F.kl_div(p_mixture, p_clean, reduction='batchmean') +
+                            F.kl_div(p_mixture, p_aug1, reduction='batchmean') +
+                            F.kl_div(p_mixture, p_aug2, reduction='batchmean'))
+
+        elif configs.TRAIN.methods == 'graphcut':
+            input_var = Variable(input, requires_grad=True)
+
+            output = model(input_var)
+            loss_clean = criterion(output, target)
+
+            if half:
+                with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss_clean.backward()
+            unary = torch.sqrt(torch.mean(input_var.grad**2, dim=1))
+
+            block_num = 2**(np.random.randint(1, 5))
+            mask = get_mask(input, unary, block_num, permuted_idx, alpha=lam, mean=mean, std=std)
+            output, lam = model(input,
+                                graphcut=True,
+                                permuted_idx=permuted_idx1,
+                                block_num=block_num,
+                                mask=mask,
+                                unary=unary)
+
+        if configs.TRAIN.methods == 'manifold':
+            output = model(input, manifold=True, lam=lam, permuted_idx=permuted_idx1)
+        elif configs.TRAIN.methods != 'augmix' and configs.TRAIN.methods != 'graphcut':
+            output = model(input)
+
+        if configs.TRAIN.methods == 'nat':
+            loss = criterion(output, target)
+        elif configs.TRAIN.methods == 'augmix':
+            loss = criterion(output, target) + loss_JSD
+        else:
+            loss = lam * criterion_batch(output, target) + (1 - lam) * criterion_batch(
+                output, target[permuted_idx])
+            loss = torch.mean(loss)
+
+        # compute gradient and do SGD step
+        #optimizer.zero_grad()
+        if half:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
-            loss_clean.backward()
+            loss.backward()
 
-#         unary = torch.sqrt(torch.mean(input_var.grad**2, dim=1))
-
-#         block_num = 2**(np.random.randint(1, 5))
-#         mask, lam = get_mask(input,
-#                              unary,
-#                              block_num,
-#                              permuted_idx,
-#                              alpha=lam,
-#                              beta=configs.TRAIN.beta,
-#                              eta=configs.TRAIN.eta,
-#                              mean=mean,
-#                              std=std,
-#                              mp=mp)
-
-#         if clean_lam == 0:
-#             model.train()
-        
-#         output = model(input,
-#                        graphcut=True,
-#                        permuted_idx=permuted_idx1,
-#                        block_num=block_num,
-#                        mask=mask,
-#                        nary=unary,
-#                        t_eps=configs.TRAIN.eps)
-
-#         loss = lam * criterion_batch(output, target) + (1 - lam) * criterion_batch(
-#             output, target[permuted_idx])
-#         loss = torch.mean(loss)
-
-#         # compute gradient and do SGD step
-#         if clean_lam > 0:
-#             with amp.scale_loss(loss, optimizer) as scaled_loss:
-#                 scaled_loss.backward()
-#         else:
-#             optimizer.zero_grad()
-#             loss.backward()
         optimizer.step()
 
         prec1, prec5 = accuracy(output, target, topk=(1, 5))
-        # losses.update(loss.item(), input.size(0))
-        losses.update(loss_clean.item(), input.size(0))
+        losses.update(loss.item(), input.size(0))
         top1.update(prec1[0], input.size(0))
         top5.update(prec5[0], input.size(0))
 
@@ -332,7 +305,56 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
                                        cls_loss=losses,
                                        lr=lr))
             sys.stdout.flush()
-    return top1.avg, top5.avg, losses.avg, lr
+
+
+def test(net, test_loader):
+    """Evaluate network on given dataset."""
+    net.eval()
+    total_loss = 0.
+    total_correct = 0
+
+    mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
+    mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
+    std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
+    std = std.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
+
+    with torch.no_grad():
+        for images, targets in test_loader:
+            images, targets = images.cuda(), targets.cuda()
+            images.sub_(mean).div_(std)
+            logits = net(images)
+            loss = F.cross_entropy(logits, targets)
+            pred = logits.data.max(1)[1]
+            total_loss += float(loss.data)
+            total_correct += pred.eq(targets.data).sum().item()
+
+    return total_loss / len(test_loader.dataset), total_correct / len(test_loader.dataset)
+
+
+def test_c(net, test_transform):
+    """Evaluate network on given corrupted dataset."""
+    corruption_accs = {}
+    for c in CORRUPTIONS:
+        print(c)
+        for s in range(1, 6):
+            valdir = os.path.join('/home/wonhochoo/data/imagenet/imagenet-c/', c, str(s))
+            val_loader = torch.utils.data.DataLoader(datasets.ImageFolder(valdir, test_transform),
+                                                     batch_size=configs.DATA.batch_size,
+                                                     shuffle=False,
+                                                     num_workers=configs.DATA.workers,
+                                                     pin_memory=True,
+                                                     drop_last=False)
+
+            loss, acc1 = test(net, val_loader)
+            if c in corruption_accs:
+                corruption_accs[c].append(acc1)
+            else:
+                corruption_accs[c] = [acc1]
+
+            print('\ts={}: Test Loss {:.3f} | Test Acc1 {:.3f}'.format(s, loss, 100. * acc1))
+
+    return corruption_accs
+
 
 if __name__ == '__main__':
     main()
