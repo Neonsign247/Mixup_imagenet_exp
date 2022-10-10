@@ -22,6 +22,7 @@ import models
 from models.imagenet_resnet import BasicBlock, Bottleneck
 from multiprocessing import Pool
 #from torchvision.models.resnet import BasicBlock, Bottleneck
+import pdb
 
 from apex import amp
 import copy
@@ -180,6 +181,7 @@ def main():
     else:
         mp = None
 
+    pdb.set_trace()
     for epoch in range(configs.TRAIN.start_epoch, configs.TRAIN.epochs):
         # train for one epoch
         train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
