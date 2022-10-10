@@ -181,7 +181,6 @@ def main():
     else:
         mp = None
 
-    pdb.set_trace()
     for epoch in range(configs.TRAIN.start_epoch, configs.TRAIN.epochs):
         # train for one epoch
         train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
@@ -270,12 +269,14 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
 
         if clean_lam == 0:
             model.train()
+        
+        pdb.set_trace()
         output = model(input,
                        graphcut=True,
                        permuted_idx=permuted_idx1,
                        block_num=block_num,
                        mask=mask,
-                       unary=unary,
+                       nary=unary,
                        t_eps=configs.TRAIN.eps)
 
         loss = lam * criterion_batch(output, target) + (1 - lam) * criterion_batch(
