@@ -17,5 +17,33 @@ patch_torch_functions  : True
 keep_batchnorm_fp32    : None
 master_weights         : None
 loss_scale             : 1024.0
-Test: [0/49]	Time 17.223 (17.223)	Loss 4.3282 (4.3282)	Prec@1 16.504 (16.504)	Prec@5 41.211 (41.211)
- Final Prec@1 12.318 Prec@5 29.052
+Test: [0/49]	Time 13.249 (13.249)	Loss 4.0972 (4.0972)	Prec@1 20.996 (20.996)	Prec@5 48.828 (48.828)
+ Final Prec@1 12.708 Prec@5 30.098
+Test: [0/49]	Time 6.322 (6.322)	Loss 3.7725 (3.7725)	Prec@1 24.902 (24.902)	Prec@5 53.418 (53.418)
+ Final Prec@1 19.156 Prec@5 40.566
+Test: [0/49]	Time 5.028 (5.028)	Loss 3.0747 (3.0747)	Prec@1 42.188 (42.188)	Prec@5 72.070 (72.070)
+ Final Prec@1 30.112 Prec@5 55.618
+Test: [0/49]	Time 5.128 (5.128)	Loss 2.8404 (2.8404)	Prec@1 44.824 (44.824)	Prec@5 71.680 (71.680)
+ Final Prec@1 32.796 Prec@5 58.752
+Test: [0/49]	Time 4.980 (4.980)	Loss 2.8519 (2.8519)	Prec@1 43.652 (43.652)	Prec@5 71.094 (71.094)
+ Final Prec@1 26.846 Prec@5 50.968
+Test: [0/49]	Time 4.891 (4.891)	Loss 2.9384 (2.9384)	Prec@1 43.262 (43.262)	Prec@5 67.578 (67.578)
+ Final Prec@1 31.344 Prec@5 56.484
+Test: [0/49]	Time 4.979 (4.979)	Loss 2.2326 (2.2326)	Prec@1 52.344 (52.344)	Prec@5 82.812 (82.812)
+ Final Prec@1 35.022 Prec@5 61.418
+Test: [0/49]	Time 4.805 (4.805)	Loss 3.2977 (3.2977)	Prec@1 37.305 (37.305)	Prec@5 65.625 (65.625)
+ Final Prec@1 27.954 Prec@5 52.472
+Test: [0/49]	Time 5.458 (5.458)	Loss 2.5505 (2.5505)	Prec@1 52.832 (52.832)	Prec@5 77.637 (77.637)
+ Final Prec@1 33.940 Prec@5 59.356
+Test: [0/49]	Time 6.925 (6.925)	Loss 2.4924 (2.4924)	Prec@1 49.512 (49.512)	Prec@5 77.930 (77.930)
+ Final Prec@1 35.494 Prec@5 61.026
+Test: [0/49]	Time 6.857 (6.857)	Loss 2.0469 (2.0469)	Prec@1 58.887 (58.887)	Prec@5 82.422 (82.422)
+ Final Prec@1 40.634 Prec@5 67.216
+Test: [0/49]	Time 4.834 (4.834)	Loss 1.9715 (1.9715)	Prec@1 61.816 (61.816)	Prec@5 84.863 (84.863)
+ Final Prec@1 42.504 Prec@5 68.756
+Test: [0/49]	Time 4.731 (4.731)	Loss 1.9954 (1.9954)	Prec@1 61.328 (61.328)	Prec@5 84.180 (84.180)
+ Final Prec@1 46.340 Prec@5 72.204
+Test: [0/49]	Time 4.473 (4.473)	Loss 1.9297 (1.9297)	Prec@1 65.137 (65.137)	Prec@5 85.645 (85.645)
+ Final Prec@1 50.846 Prec@5 75.842
+Test: [0/49]	Time 6.208 (6.208)	Loss 1.6307 (1.6307)	Prec@1 68.555 (68.555)	Prec@5 88.184 (88.184)
+ Final Prec@1 51.446 Prec@5 76.120
