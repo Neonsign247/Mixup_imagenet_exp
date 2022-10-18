@@ -1,0 +1,44 @@
+Selected optimization level O1:  Insert automatic casts around Pytorch functions and Tensor methods.
+
+Defaults for this optimization level are:
+enabled                : True
+opt_level              : O1
+cast_model_type        : None
+patch_torch_functions  : True
+keep_batchnorm_fp32    : None
+master_weights         : None
+loss_scale             : dynamic
+Processing user overrides (additional kwargs that are not None)...
+After processing overrides, optimization options are:
+enabled                : True
+opt_level              : O1
+cast_model_type        : None
+patch_torch_functions  : True
+keep_batchnorm_fp32    : None
+master_weights         : None
+loss_scale             : 1024.0
+ Final Prec@1 50.004 Prec@5 75.548
+ Final Prec@1 55.008 Prec@5 79.860
+ Final Prec@1 54.324 Prec@5 79.030
+ Final Prec@1 56.160 Prec@5 80.860
+ Final Prec@1 54.996 Prec@5 79.744
+ Final Prec@1 54.768 Prec@5 79.888
+ Final Prec@1 53.396 Prec@5 78.178
+ Final Prec@1 56.030 Prec@5 80.668
+ Final Prec@1 59.904 Prec@5 83.506
+ Final Prec@1 54.392 Prec@5 79.160
+ Final Prec@1 59.320 Prec@5 83.272
+ Final Prec@1 60.544 Prec@5 84.098
+ Final Prec@1 60.450 Prec@5 83.586
+ Final Prec@1 60.654 Prec@5 83.706
+ Final Prec@1 62.024 Prec@5 85.098
+ Final Prec@1 63.246 Prec@5 85.660
+ Final Prec@1 62.766 Prec@5 85.244
+ Final Prec@1 65.626 Prec@5 87.352
+ Final Prec@1 65.124 Prec@5 87.178
+ Final Prec@1 62.304 Prec@5 84.558
+ Final Prec@1 67.282 Prec@5 88.478
+ Final Prec@1 68.784 Prec@5 89.356
+ Final Prec@1 68.222 Prec@5 88.822
+ Final Prec@1 70.544 Prec@5 90.090
+ Final Prec@1 71.134 Prec@5 90.556

@@ -17,3 +17,18 @@ patch_torch_functions  : True
 keep_batchnorm_fp32    : None
 master_weights         : None
 loss_scale             : 1024.0
+ Final Prec@1 10.086 Prec@5 25.202
+ Final Prec@1 14.702 Prec@5 33.250
+ Final Prec@1 18.232 Prec@5 38.342
+ Final Prec@1 24.884 Prec@5 48.024
+ Final Prec@1 30.122 Prec@5 54.772
+ Final Prec@1 33.184 Prec@5 58.686
+ Final Prec@1 31.660 Prec@5 57.352
+ Final Prec@1 27.664 Prec@5 52.430
+ Final Prec@1 35.476 Prec@5 61.240
+ Final Prec@1 29.240 Prec@5 54.190
+ Final Prec@1 41.574 Prec@5 67.834
+ Final Prec@1 40.490 Prec@5 66.710
+ Final Prec@1 45.296 Prec@5 71.520
+ Final Prec@1 48.774 Prec@5 74.288
+ Final Prec@1 55.534 Prec@5 79.710

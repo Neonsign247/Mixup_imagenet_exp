@@ -294,6 +294,8 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
 #         loss_clean = criterion(output, target)
         #cutmix
         loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+        if torch.isnan(loss_clean):
+            pdb.set_trace()
 
         if clean_lam > 0:
             with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
