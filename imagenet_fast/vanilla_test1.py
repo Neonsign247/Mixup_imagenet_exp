@@ -254,8 +254,6 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
     model.train()
     end = time.time()
     
-    print_count = 0
-    
     for i, (input, target) in enumerate(train_loader):
         input = input.cuda(non_blocking=True)
 
@@ -300,12 +298,7 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
             
         optimizer.zero_grad()
         output = model(input_var)
-#         loss_clean = criterion(output, target)
-        #cutmix
-#         loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
-        if print_count == 0:
-            print("apex!!")
-            print_count += 1
+        loss_clean = criterion(output, target)
 
         if clean_lam > 0:
             with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
