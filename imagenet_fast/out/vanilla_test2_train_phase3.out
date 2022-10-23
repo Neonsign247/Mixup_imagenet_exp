@@ -1,0 +1,4 @@
+> /workspace/hi/DropMix/Mixup_imagenet_exp/imagenet_fast/vanilla_test2.py(291)train()
+-> loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+(Pdb) 10
+(Pdb) 

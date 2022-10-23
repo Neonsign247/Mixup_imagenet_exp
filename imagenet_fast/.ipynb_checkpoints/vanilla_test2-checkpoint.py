@@ -24,8 +24,10 @@ from multiprocessing import Pool
 #from torchvision.models.resnet import BasicBlock, Bottleneck
 import pdb
 import wandb
+import random
 
-from apex import amp
+
+# from apex import amp
 import copy
 
 
@@ -70,6 +72,7 @@ criterion_batch = nn.CrossEntropyLoss(reduction='none').cuda()
 
 
 def main():
+    torch.autograd.set_detect_anomaly(True)
     # Scale and initialize the parameters
     best_prec1 = 0
     
@@ -122,8 +125,8 @@ def main():
                                 momentum=configs.TRAIN.momentum,
                                 weight_decay=configs.TRAIN.weight_decay)
 
-    if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
+#     if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
+#         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
     model = torch.nn.DataParallel(model)
 
     # Resume if a valid checkpoint path is provided
@@ -143,9 +146,9 @@ def main():
     # Initiate data loaders
     traindir = os.path.join(configs.data, 'train')
     valdir = os.path.join(configs.data, 'val')
-
+        
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(configs.DATA.crop_size, scale=(configs.DATA.min_scale, 1.0)),
+        transforms.RandomResizedCrop(configs.DATA.crop_size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
@@ -186,9 +189,12 @@ def main():
         mp = None
 
     wandb.watch(model)
+    
+    scaler = torch.cuda.amp.GradScaler()
+    
     for epoch in range(configs.TRAIN.start_epoch, configs.TRAIN.epochs):
         # train for one epoch
-        tprec1, tprec5, tloss, lr = train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
+        tprec1, tprec5, tloss, lr = train(scaler, train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
 
         # evaluate on validation set
         prec1, prec5, loss = validate(val_loader, model, criterion, configs, logger)
@@ -214,26 +220,9 @@ def main():
                 'best_prec1': best_prec1,
                 'optimizer': optimizer.state_dict(),
             }, is_best, os.path.join('trained_models', f'{configs.output_name}'), epoch + 1)
-        
-def rand_bbox(size, lam):
-    W = size[2]
-    H = size[3]
-    cut_rat = np.sqrt(1. - lam)
-    cut_w = np.int(W * cut_rat)
-    cut_h = np.int(H * cut_rat)
 
-    # uniform
-    cx = np.random.randint(W)
-    cy = np.random.randint(H)
 
-    bbx1 = np.clip(cx - cut_w // 2, 0, W)
-    bby1 = np.clip(cy - cut_h // 2, 0, H)
-    bbx2 = np.clip(cx + cut_w // 2, 0, W)
-    bby2 = np.clip(cy + cut_h // 2, 0, H)
-
-    return bbx1, bby1, bbx2, bby2
-
-def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
+def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
     mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
     mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
     std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
@@ -264,47 +253,57 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
 
         input.sub_(mean).div_(std)
         lam = np.random.beta(configs.TRAIN.alpha, configs.TRAIN.alpha)
-        
-        #DropMix
-        ignore_index = torch.randperm(len(target))[:round(len(target) * configs.TRAIN.ratio)]
-        ignore_mask = torch.zeros(len(target)).bool()
-        ignore_mask[ignore_index] = True
 
-        target_mixup = target[~ignore_mask]
-        target_ignore = target[ignore_mask]
-        input_mixup = input[~ignore_mask]
-        input_ignore = input[ignore_mask]
-        
-        #CutMix
-        rand_index = torch.randperm(input_mixup.size()[0]).cuda()
-        target_a = torch.cat((target_mixup, target_ignore), 0)
-        target_b = torch.cat((target_mixup[rand_index], target_ignore), 0)
-        bbx1, bby1, bbx2, bby2 = rand_bbox(input_mixup.size(), lam)
-        input_mixup[:, :, bbx1:bbx2, bby1:bby2] = input_mixup[rand_index, :, bbx1:bbx2, bby1:bby2]
-        # adjust lambda to exactly match pixel ratio
-        lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input_mixup.size()[-1] * input_mixup.size()[-2]))
-        input = torch.cat((input_mixup, input_ignore),0)
-        ###
-#         pdb.set_trace()
-        
-        input_var = Variable(input, requires_grad=True)
+#         #DropMix
+#         ignore_index = torch.randperm(len(target))[:round(len(target) * configs.TRAIN.ratio)]
+#         ignore_mask = torch.zeros(len(target)).bool()
+#         ignore_mask[ignore_index] = True
+
+#         target_mixup = target[~ignore_mask]
+#         target_ignore = target[ignore_mask]
+#         input_mixup = input[~ignore_mask]
+#         input_ignore = input[ignore_mask]
+
+#         #CutMix
+#         rand_index = torch.randperm(input_mixup.size()[0]).cuda()
+#         target_a = torch.cat((target_mixup, target_ignore), 0)
+#         target_b = torch.cat((target_mixup[rand_index], target_ignore), 0)
+#         bbx1, bby1, bbx2, bby2 = rand_bbox(input_mixup.size(), lam)
+#         input_mixup[:, :, bbx1:bbx2, bby1:bby2] = input_mixup[rand_index, :, bbx1:bbx2, bby1:bby2]
+#         # adjust lambda to exactly match pixel ratio
+#         lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input_mixup.size()[-1] * input_mixup.size()[-2]))
+#         input = torch.cat((input_mixup, input_ignore),0)
+#         ###
+# #         pdb.set_trace()
+
+#         #Mixup
+        rand_index = torch.randperm(input.size()[0]).cuda()
+        target_a = target
+        target_b = target[rand_index]
+        input_mixup = input * lam + input[rand_index] * (1. - lam)
+
+        input_var = Variable(input_mixup, requires_grad=True)
 
         if clean_lam == 0:
             model.eval()
 
-        output = model(input_var)
-#         loss_clean = criterion(output, target)
-        #cutmix
-        loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
-        if torch.isnan(loss_clean):
-            pdb.set_trace()
-
+        optimizer.zero_grad()
         if clean_lam > 0:
-            with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            with torch.cuda.amp.autocast(): 
+                output = model(input_var)
+        #         loss_clean = criterion(output, target)
+        #         #cutmix
+                loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+            scaler.scale(loss_clean).backward()
+            scaler.step(optimizer)
+            scaler.update()
         else:
+            output = model(input_var)
+    #         loss_clean = criterion(output, target)
+    #         #cutmix
+            loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
             loss_clean.backward()
-        optimizer.step()
+            optimizer.step()
 
         prec1, prec5 = accuracy(output, target, topk=(1, 5))
         # losses.update(loss.item(), input.size(0))
@@ -315,6 +314,11 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
+        for name, param in model.named_parameters():
+            if torch.isnan(param.grad).any():
+                print("nan gradient found")
+                pdb.set_trace()
+        input_pre = input
 
 #         if i % configs.TRAIN.print_freq == 0:
 #             print('Train Epoch: [{0}][{1}/{2}]\t'
