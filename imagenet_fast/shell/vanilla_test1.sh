@@ -1,5 +1,5 @@
 GPU=0,1,2,3
-NAME=vanilla_test1_amp
+NAME=vanilla_test1
 
 DATA160=/workspace/dataset/ILSVRC2012-sz/160
 DATA352=/workspace/dataset/ILSVRC2012-sz/352

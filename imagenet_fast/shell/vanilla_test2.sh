@@ -1,5 +1,5 @@
 GPU=4,5,6,7
-NAME=vanilla_test2_mixup_amp
+NAME=vanilla_test2
 
 DATA160=/workspace/dataset/ILSVRC2012-sz/160
 DATA352=/workspace/dataset/ILSVRC2012-sz/352
@@ -38,6 +38,7 @@ CUDA_VISIBLE_DEVICES=$GPU python -u vanilla_test2.py $DATA352 -c $CONFIG2 --outp
 
 # training for phase 3
 CUDA_VISIBLE_DEVICES=$GPU python -u vanilla_test2.py $DATA352 -c $CONFIG3 --output_prefix $PREFIX3 --resume $END2 | tee $OUT3
+
 
 # evaluation for phase 3
 # CUDA_VISIBLE_DEVICES=$GPU python -u main_fast.py $DATA -c $CONFIG3 --output_prefix $PREFIX3 --resume $END3 --evaluate | tee $EVAL3

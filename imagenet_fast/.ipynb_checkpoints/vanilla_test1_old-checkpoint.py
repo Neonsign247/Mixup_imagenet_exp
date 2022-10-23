@@ -26,6 +26,7 @@ import pdb
 import wandb
 
 from apex import amp
+# from torch.cuda import amp
 import copy
 
 
@@ -70,6 +71,7 @@ criterion_batch = nn.CrossEntropyLoss(reduction='none').cuda()
 
 
 def main():
+    torch.autograd.set_detect_anomaly(True)
     # Scale and initialize the parameters
     best_prec1 = 0
     
@@ -121,8 +123,6 @@ def main():
                                 0,
                                 momentum=configs.TRAIN.momentum,
                                 weight_decay=configs.TRAIN.weight_decay)
-    
-    configs.TRAIN.clean_lam = 1
 
     if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
@@ -147,7 +147,7 @@ def main():
     valdir = os.path.join(configs.data, 'val')
 
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(configs.DATA.crop_size, scale=(configs.DATA.min_scale, 1.0)),
+        transforms.RandomResizedCrop(configs.DATA.crop_size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor()
     ])
@@ -219,10 +219,26 @@ def main():
                 'best_prec1': best_prec1,
                 'optimizer': optimizer.state_dict(),
             }, is_best, os.path.join('trained_models', f'{configs.output_name}'), epoch + 1)
-        
+
+def rand_bbox(size, lam):
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = np.int(W * cut_rat)
+    cut_h = np.int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
 
 def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
-    max_norm = 5
     mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
     mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
     std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
@@ -237,7 +253,7 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
     # switch to train mode
     model.train()
     end = time.time()
-
+    
     for i, (input, target) in enumerate(train_loader):
         input = input.cuda(non_blocking=True)
 
@@ -252,24 +268,57 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
         optimizer.zero_grad()
 
         input.sub_(mean).div_(std)
-        
+#         lam = np.random.beta(configs.TRAIN.alpha, configs.TRAIN.alpha)
+
+#         #DropMix
+#         ignore_index = torch.randperm(len(target))[:round(len(target) * configs.TRAIN.ratio)]
+#         ignore_mask = torch.zeros(len(target)).bool()
+#         ignore_mask[ignore_index] = True
+
+#         target_mixup = target[~ignore_mask]
+#         target_ignore = target[ignore_mask]
+#         input_mixup = input[~ignore_mask]
+#         input_ignore = input[ignore_mask]
+
+#         #CutMix
+#         rand_index = torch.randperm(input_mixup.size()[0]).cuda()
+#         target_a = torch.cat((target_mixup, target_ignore), 0)
+#         target_b = torch.cat((target_mixup[rand_index], target_ignore), 0)
+#         bbx1, bby1, bbx2, bby2 = rand_bbox(input_mixup.size(), lam)
+#         input_mixup[:, :, bbx1:bbx2, bby1:bby2] = input_mixup[rand_index, :, bbx1:bbx2, bby1:bby2]
+#         # adjust lambda to exactly match pixel ratio
+#         lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input_mixup.size()[-1] * input_mixup.size()[-2]))
+#         input = torch.cat((input_mixup, input_ignore),0)
+#         ###
+
         input_var = Variable(input, requires_grad=True)
 
         if clean_lam == 0:
             model.eval()
-
+            
+        optimizer.zero_grad()
         output = model(input_var)
         loss_clean = criterion(output, target)
-        if torch.isnan(loss_clean):
-            pdb.set_trace()
 
         if clean_lam > 0:
             with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
             loss_clean.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
+
+#         if clean_lam > 0:
+#             with torch.cuda.amp.autocast(): 
+#                 output = model(input_var)
+#                 loss_clean = criterion(output, target)
+#             scaler.scale(loss_clean).backward()
+#             scaler.step(optimizer)
+#             scaler.update()
+#         else:
+#             output = model(input_var)
+#             loss_clean = criterion(output, target)
+#             loss_clean.backward()
+#             optimizer.step()
 
         prec1, prec5 = accuracy(output, target, topk=(1, 5))
         # losses.update(loss.item(), input.size(0))
@@ -281,23 +330,23 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % configs.TRAIN.print_freq == 0:
-            print('Train Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-                  'Loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'
-                  'LR {lr:.3f}'.format(epoch,
-                                       i,
-                                       len(train_loader),
-                                       batch_time=batch_time,
-                                       data_time=data_time,
-                                       top1=top1,
-                                       top5=top5,
-                                       cls_loss=losses,
-                                       lr=lr))
-            sys.stdout.flush()
+#         if i % configs.TRAIN.print_freq == 0:
+#             print('Train Epoch: [{0}][{1}/{2}]\t'
+#                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+#                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+#                   'Loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
+#                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+#                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'
+#                   'LR {lr:.3f}'.format(epoch,
+#                                        i,
+#                                        len(train_loader),
+#                                        batch_time=batch_time,
+#                                        data_time=data_time,
+#                                        top1=top1,
+#                                        top5=top5,
+#                                        cls_loss=losses,
+#                                        lr=lr))
+#             sys.stdout.flush()
     print(' Epoch {epoch}  Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
             .format(epoch=epoch, top1=top1, top5=top5))
     return top1.avg, top5.avg, losses.avg, lr

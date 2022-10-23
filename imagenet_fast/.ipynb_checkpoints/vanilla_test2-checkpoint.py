@@ -27,7 +27,7 @@ import wandb
 import random
 
 
-# from apex import amp
+from apex import amp
 import copy
 
 
@@ -223,6 +223,7 @@ def main():
 
 
 def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
+    max_norm = 5
     mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
     mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
     std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
@@ -287,23 +288,40 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
         if clean_lam == 0:
             model.eval()
 
-        optimizer.zero_grad()
-        if clean_lam > 0:
-            with torch.cuda.amp.autocast(): 
-                output = model(input_var)
-        #         loss_clean = criterion(output, target)
-        #         #cutmix
-                loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
-            scaler.scale(loss_clean).backward()
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            output = model(input_var)
-    #         loss_clean = criterion(output, target)
-    #         #cutmix
-            loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
-            loss_clean.backward()
-            optimizer.step()
+        output = model(input_var)
+        if torch.any(torch.isnan(output)):
+            pdb.set_trace()
+#         loss_clean = criterion(output, target)
+#         #cutmix
+        loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+
+#         if clean_lam > 0:
+#             with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
+#                 scaled_loss.backward()
+#         else:
+#             loss_clean.backward()
+        loss_clean.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+        optimizer.step()
+#         scaler.scale(loss_clean).backward()
+#         scaler.step(optimizer)
+#         scaler.update()
+#         if clean_lam > 0:
+#             with torch.cuda.amp.autocast(): 
+#                 output = model(input_var)
+#         #         loss_clean = criterion(output, target)
+#         #         #cutmix
+#                 loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+#             scaler.scale(loss_clean).backward()
+#             scaler.step(optimizer)
+#             scaler.update()
+#         else:
+#             output = model(input_var)
+#     #         loss_clean = criterion(output, target)
+#     #         #cutmix
+#             loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+#             loss_clean.backward()
+#             optimizer.step()
 
         prec1, prec5 = accuracy(output, target, topk=(1, 5))
         # losses.update(loss.item(), input.size(0))
@@ -314,29 +332,24 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        for name, param in model.named_parameters():
-            if torch.isnan(param.grad).any():
-                print("nan gradient found")
-                pdb.set_trace()
-        input_pre = input
 
-#         if i % configs.TRAIN.print_freq == 0:
-#             print('Train Epoch: [{0}][{1}/{2}]\t'
-#                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-#                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
-#                   'Loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
-#                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-#                   'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'
-#                   'LR {lr:.3f}'.format(epoch,
-#                                        i,
-#                                        len(train_loader),
-#                                        batch_time=batch_time,
-#                                        data_time=data_time,
-#                                        top1=top1,
-#                                        top5=top5,
-#                                        cls_loss=losses,
-#                                        lr=lr))
-#             sys.stdout.flush()
+        if i % configs.TRAIN.print_freq == 0:
+            print('Train Epoch: [{0}][{1}/{2}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
+                  'Loss {cls_loss.val:.4f} ({cls_loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})\t'
+                  'LR {lr:.3f}'.format(epoch,
+                                       i,
+                                       len(train_loader),
+                                       batch_time=batch_time,
+                                       data_time=data_time,
+                                       top1=top1,
+                                       top5=top5,
+                                       cls_loss=losses,
+                                       lr=lr))
+            sys.stdout.flush()
     print(' Epoch {epoch}  Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
             .format(epoch=epoch, top1=top1, top5=top5))
     return top1.avg, top5.avg, losses.avg, lr
