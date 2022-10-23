@@ -124,8 +124,8 @@ def main():
                                 momentum=configs.TRAIN.momentum,
                                 weight_decay=configs.TRAIN.weight_decay)
 
-#     if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
-#         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
+    if configs.TRAIN.clean_lam > 0 and not configs.evaluate:
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1", loss_scale=1024)
     model = torch.nn.DataParallel(model)
 
     # Resume if a valid checkpoint path is provided
@@ -253,7 +253,9 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
     # switch to train mode
     model.train()
     end = time.time()
-
+    
+    print_count = 0
+    
     for i, (input, target) in enumerate(train_loader):
         input = input.cuda(non_blocking=True)
 
@@ -292,25 +294,38 @@ def train(scaler, train_loader, model, optimizer, epoch, lr_schedule, clean_lam=
 #         ###
         
         input_var = Variable(input, requires_grad=True)
-        
-        clean_lam = 0
 
         if clean_lam == 0:
             model.eval()
             
         optimizer.zero_grad()
+        output = model(input_var)
+#         loss_clean = criterion(output, target)
+        #cutmix
+#         loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
+        if print_count == 0:
+            print("apex!!")
+            print_count += 1
+
         if clean_lam > 0:
-            with torch.cuda.amp.autocast(): 
-                output = model(input_var)
-                loss_clean = criterion(output, target)
-            scaler.scale(loss_clean).backward()
-            scaler.step(optimizer)
-            scaler.update()
+            with amp.scale_loss(loss_clean, optimizer) as scaled_loss:
+                scaled_loss.backward()
         else:
-            output = model(input_var)
-            loss_clean = criterion(output, target)
             loss_clean.backward()
-            optimizer.step()
+        optimizer.step()
+        
+#         if clean_lam > 0:
+#             with torch.cuda.amp.autocast(): 
+#                 output = model(input_var)
+#                 loss_clean = criterion(output, target)
+#             scaler.scale(loss_clean).backward()
+#             scaler.step(optimizer)
+#             scaler.update()
+#         else:
+#             output = model(input_var)
+#             loss_clean = criterion(output, target)
+#             loss_clean.backward()
+#             optimizer.step()
 
         prec1, prec5 = accuracy(output, target, topk=(1, 5))
         # losses.update(loss.item(), input.size(0))
