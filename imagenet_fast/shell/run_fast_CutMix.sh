@@ -9,8 +9,8 @@ CONFIG2=configs/${NAME}/configs_fast_phase2.yml
 CONFIG3=configs/${NAME}/configs_fast_phase3.yml
 
 PREFIX1=${NAME}_phase1
-PREFIX2=${NAME}_phase1
-PREFIX3=${NAME}_phase1
+PREFIX2=${NAME}_phase2
+PREFIX3=${NAME}_phase3
 
 OUT1=out/${NAME}_train_phase1.out
 OUT2=out/${NAME}_train_phase2.out

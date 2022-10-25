@@ -73,7 +73,7 @@ def main():
     # Scale and initialize the parameters
     best_prec1 = 0
     
-    wandb.init(project="ImangeNet CutMix 100epoch", entity="neonsign", name = configs.output_name)
+    wandb.init(project="DropMix Imagenet 100epoch", entity="neonsign", name = configs.output_name)
     wandb.config.update(configs)
 
     # Create output folder

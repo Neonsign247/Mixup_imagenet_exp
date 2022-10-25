@@ -52,5 +52,5 @@ DATA:
     crop_size: 224
 
     # Min-scale for random resized crop
-    min_scale: 0.087
+    min_scale: 0.08
 
