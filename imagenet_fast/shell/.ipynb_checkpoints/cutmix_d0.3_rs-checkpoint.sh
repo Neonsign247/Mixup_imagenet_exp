@@ -1,4 +1,4 @@
-GPU=4,5,6,7
+GPU=2,3
 NAME=cutmix_d0.3
 
 DATA160=/workspace/dataset/ILSVRC2012-sz/160
