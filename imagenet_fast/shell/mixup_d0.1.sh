@@ -22,9 +22,9 @@ do
     PREFIX2=${NAME}_${i}_phase2
     PREFIX3=${NAME}_${i}_phase3
 
-    END1=./trained_models/${PREFIX1}/checkpoint_epoch15.pth.tar
-    END2=./trained_models/${PREFIX2}/checkpoint_epoch40.pth.tar
-    END3=./trained_models/${PREFIX3}/checkpoint_epoch100.pth.tar
+    END1=./trained_models/${PREFIX1}/checkpoint.pth.tar
+    END2=./trained_models/${PREFIX2}/checkpoint.pth.tar
+    END3=./trained_models/${PREFIX3}/checkpoint.pth.tar
     # training for phase 1
     CUDA_VISIBLE_DEVICES=$GPU python -u dropmix_r.py $DATA160 -c $CONFIG1 --output_prefix $PREFIX1 | tee $OUT1
 
