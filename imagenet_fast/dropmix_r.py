@@ -287,7 +287,6 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, msda=
 
         ## mixup
         else:
-            print('mixup')
             input_mixup = input_mixup * lam + input_mixup[rand_index] * (1. - lam)
             
         input = torch.cat((input_mixup, input_ignore), 0)
