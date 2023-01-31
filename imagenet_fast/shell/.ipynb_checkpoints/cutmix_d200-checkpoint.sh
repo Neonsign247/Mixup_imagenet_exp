@@ -25,7 +25,7 @@ END2=./trained_models/${PREFIX2}/checkpoint_epoch40.pth.tar
 END3=./trained_models/${PREFIX3}/checkpoint_epoch100.pth.tar
 
 # training for phase 1
-CUDA_VISIBLE_DEVICES=$GPU python -u cutmix_drop_class.py $DATA160 -c $CONFIG1 --output_prefix $PREFIX1 | tee $OUT1
+# CUDA_VISIBLE_DEVICES=$GPU python -u cutmix_drop_class.py $DATA160 -c $CONFIG1 --output_prefix $PREFIX1 | tee $OUT1
 
 # evaluation for phase 1
 # CUDA_VISIBLE_DEVICES=$GPU python -u main_fast.py $DATA352 -c $CONFIG1 --output_prefix $PREFIX1 --resume $END1  --evaluate | tee $EVAL1

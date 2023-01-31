@@ -91,8 +91,9 @@ def parse_config_file(args):
     return config
 
 
-def save_checkpoint(state, is_best, filepath, epoch):
-    filename = os.path.join(filepath, f'checkpoint_epoch{epoch}.pth.tar')
+# def save_checkpoint(state, is_best, filepath, epoch):
+def save_checkpoint(state, is_best, filepath):
+    filename = os.path.join(filepath, f'checkpoint.pth.tar')
     # Save model
     torch.save(state, filename)
     # Save best model

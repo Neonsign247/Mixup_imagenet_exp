@@ -62,6 +62,7 @@ def parse_args():
 
 # Parase config file and initiate logging
 configs = parse_config_file(parse_args())
+pdb.set_trace()
 logger = initiate_logger(configs.output_name, configs.evaluate)
 print = logger.info
 cudnn.benchmark = True
@@ -188,7 +189,7 @@ def main():
     wandb.watch(model)
     for epoch in range(configs.TRAIN.start_epoch, configs.TRAIN.epochs):
         # train for one epoch
-        tprec1, tprec5, tloss, lr = train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp)
+        tprec1, tprec5, tloss, lr = train(train_loader, model, optimizer, epoch, lr_schedule, configs.TRAIN.clean_lam, mp=mp, configs.TRAIN.msda)
 
         # evaluate on validation set
         prec1, prec5, loss = validate(val_loader, model, criterion, configs, logger)
@@ -204,8 +205,7 @@ def main():
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
-        if is_best:
-            wandb.run.summary["best_prec1"] = best_prec1
+        wandb.run.summary["best_prec1"] = best_prec1
         save_checkpoint(
             {
                 'epoch': epoch + 1,
@@ -214,6 +214,7 @@ def main():
                 'best_prec1': best_prec1,
                 'optimizer': optimizer.state_dict(),
             }, is_best, os.path.join('trained_models', f'{configs.output_name}'), epoch + 1)
+        
         
 def rand_bbox(size, lam):
     W = size[2]
@@ -233,7 +234,7 @@ def rand_bbox(size, lam):
 
     return bbx1, bby1, bbx2, bby2
 
-def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None):
+def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=None, msda='cutmix'):
     mean = torch.Tensor(np.array(configs.TRAIN.mean)[:, np.newaxis, np.newaxis])
     mean = mean.expand(3, configs.DATA.crop_size, configs.DATA.crop_size).cuda()
     std = torch.Tensor(np.array(configs.TRAIN.std)[:, np.newaxis, np.newaxis])
@@ -275,6 +276,7 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
         input_mixup = input[~ignore_mask]
         input_ignore = input[ignore_mask]
         
+        if msda == 'cutmix':
         #CutMix
         rand_index = torch.randperm(input_mixup.size()[0]).cuda()
         target_a = torch.cat((target_mixup, target_ignore), 0)
@@ -285,7 +287,6 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
         lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input_mixup.size()[-1] * input_mixup.size()[-2]))
         input = torch.cat((input_mixup, input_ignore),0)
         ###
-#         pdb.set_trace()
         
         input_var = Variable(input, requires_grad=True)
 
@@ -294,7 +295,7 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, mp=No
 
         output = model(input_var)
 #         loss_clean = criterion(output, target)
-        #cutmix
+        #MSDA
         loss_clean = criterion(output, target_a) * lam + criterion(output, target_b) * (1. - lam)
         if torch.isnan(loss_clean):
             pdb.set_trace()
