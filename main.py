@@ -83,6 +83,7 @@ parser.add_argument('--in_batch',
                     default=False,
                     help='whether to use different lambdas in batch')
 parser.add_argument('--mixup_alpha', type=float, help='alpha parameter for mixup')
+parser.add_argument('--mixup_prob', type=float, default=1.0, help='prob parameter for mixup')
 parser.add_argument('--dropout',
                     type=str2bool,
                     default=False,
@@ -201,6 +202,7 @@ def experiment_name_non_mnist(dataset=args.dataset,
                               adv_p=args.adv_p,
                               in_batch=args.in_batch,
                               mixup_alpha=args.mixup_alpha,
+                              mixup_prob=args.mixup_prob,
                               job_id=args.job_id,
                               add_name=args.add_name,
                               clean_lam=args.clean_lam,
@@ -215,7 +217,7 @@ def experiment_name_non_mnist(dataset=args.dataset,
     exp_name += '_eph_' + str(epochs)
     exp_name += '_lr_' + str(lr)
     if mixup_alpha:
-        exp_name += '_m_alpha_' + str(mixup_alpha)
+        exp_name += '_m_alpha_' + str(mixup_alpha) + '_m_prob_' + str(mixup_prob)
     if box:
         exp_name += '_box'
     if graph:
@@ -322,7 +324,7 @@ def train(train_loader, model, optimizer, epoch, args, log, mp=None):
         adv_mask2 = 0
 
         # train with clean images
-        if args.train == 'vanilla':
+        if args.train == 'vanilla' or (args.train == 'mixup' and np.random.rand() > args.mixup_prob):
             input_var, target_var = Variable(input), Variable(target)
             output, reweighted_target = model(input_var, target_var)
             loss = bce_loss(softmax(output), reweighted_target)

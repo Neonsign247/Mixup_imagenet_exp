@@ -20,3 +20,4 @@ imagenet_fast/output/*
 imagenet_fast/trained_models/*
 imagenet_fast/trained_models_download/*
 imagenet_fast/out/*
+experiments/*

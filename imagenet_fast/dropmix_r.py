@@ -286,7 +286,7 @@ def train(train_loader, model, optimizer, epoch, lr_schedule, clean_lam=0, msda=
             lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (input_mixup.size()[-1] * input_mixup.size()[-2]))
 
         ## mixup
-        else:
+        else:   
             input_mixup = input_mixup * lam + input_mixup[rand_index] * (1. - lam)
             
         input = torch.cat((input_mixup, input_ignore), 0)
